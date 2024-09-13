@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <ProjectGuid>{0D76E5C8-1A6B-48BE-8A27-D3F881041DEE}</ProjectGuid>
+    <RootNamespace>Api</RootNamespace>
+    <TargetFramework>net8.0</TargetFramework>
+    <ReferencePath>c:\Program Files\One Identity</ReferencePath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <AssemblyName>CCC.CompositionApi.Server.Plugin</AssemblyName>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugType>full</DebugType>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="readme.md" />
+  </ItemGroup>
+  <ItemGroup>
+	  <Reference Include="QBM.CompositionApi.Server">
+		  <HintPath>$(ReferencePath)\QBM.CompositionApi.Server.dll</HintPath>
+	  </Reference>
+	  <Reference Include="NLog">
+		  <HintPath>$(ReferencePath)\NLog.dll</HintPath>
+	  </Reference>
+	  <Reference Include="QER.CompositionApi.Server.Plugin">
+		  <HintPath>$(ReferencePath)\QER.CompositionApi.Server.Plugin.dll</HintPath>
+	  </Reference>
+	  <Reference Include="VI.Base">
+		  <HintPath>$(ReferencePath)\VI.Base.dll</HintPath>
+	  </Reference>
+	  <Reference Include="VI.DB">
+		  <HintPath>$(ReferencePath)\VI.DB.dll</HintPath>
+	  </Reference>
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
+    <StartAction>Program</StartAction>
+    <StartProgram>$(ReferencePath)\imxclient.exe</StartProgram>
+    <StartArguments>run-apiserver -B /plugin CCC.CompositionApi.Server.Plugin.dll /conndialog fallback</StartArguments>
+  </PropertyGroup>
+</Project>

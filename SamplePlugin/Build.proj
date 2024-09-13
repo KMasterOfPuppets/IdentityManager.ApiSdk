@@ -1,0 +1,29 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003" ToolsVersion="15.0">
+	<PropertyGroup>
+
+		<!-- product dir relative to project root -->
+		<ComponentDir>Common\SDK\ApiSamples\Files</ComponentDir>
+
+		<!-- sub dir (below product dir) where the component exists -->
+		<ProjectSubDir></ProjectSubDir>
+
+		<!-- CSPROJ-file -->
+		<PROJ>ApiSamples.csproj</PROJ>
+
+		<!-- Name of the DLL to produce -->
+		<Component>ApiSamples.dll</Component>
+
+		<!-- PDB file to create -->
+		<ProgramDatabase>ApiSamples.pdb</ProgramDatabase>
+
+		<!--file name containing the version number to increment -->
+		<VersionFile>AssemblyInfo.cs</VersionFile>
+
+		<CheckLibAwaits>True</CheckLibAwaits>
+		
+	</PropertyGroup>
+
+	<!-- getting default part of build file -->
+	<Import Project="$(VI_PROJECTDIR)\Build\Includes\Build_NET_Component.targets"/>
+
+</Project>
