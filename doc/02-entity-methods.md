@@ -744,3 +744,132 @@ builder.ModifyCrudMethod(
             request.Session.SqlFormatter().AndRelation(whereClause, "IsTemporaryDeactivated=0")));
     });
 ```
+
+## Modifying property semantics
+
+The `IModifierService` service manages modifications for an API project. You can use this service to modify the semantics of a database property. For example, you can:
+
+- change the property's caption
+- limit the property's set of permitted values (this set must be a subset of all permitted values)
+- limit the set of assignable foreign-key values.
+
+This example shows how to limit the possible values for an identity's `UID_DialogState` assignment.
+
+```csharp
+var mod = builder.Resolver.Resolve<IModifierService>();
+// Obtain the modifiers for this column.
+mod.GetPropertyModifiers("Person", "UID_DialogState")
+    .Add(new PropertyModifier
+    {
+        // Add a modifier that limits the possible values for the UID_DialogState
+        // column, depending on the value for UID_DialogCountry.
+        FkWhereClauses =
+        {
+            new FkWhereClause(r => r.Request.Session.SqlFormatter().UidComparison("UID_DialogCountry",
+                r.Entity.GetValue("UID_DialogCountry")))
+        }
+    });
+```
+
+If you wish to modify the semantics of a property only for a specific API method, you can use the `Modify` method of the API method. This sample shows how to apply a the same modification as above, but only for one specific method.
+
+```csharp
+public void Build(IApiBuilder builder)
+{
+    builder.AddMethod(Method.Define("modified")
+        .FromTable("Person")
+        .EnableCreate()
+        .WithWritableColumns("UID_DialogCountry", "UID_DialogState")
+        // Add a modifier that limits the possible values for the UID_DialogState
+        // column, depending on the value for UID_DialogCountry.
+        .Modify("UID_DialogState", mo => mo.FkWhereClauses.Add(
+            new FkWhereClause(r => r.Request.Session
+                .SqlFormatter().UidComparison("UID_DialogCountry",
+                    r.Entity.GetValue("UID_DialogCountry")))))
+        // This is an example for a custom display value provider;
+        // converting an e-mail address to lower-case.
+        .Modify("DefaultEMailAddress",
+            modifier => modifier.DynamicModifiers.Add(
+                new LowerCaseModifier(new ConvertToLowerCase())))
+    );
+}
+
+private class ConvertToLowerCase : IDisplayValueProvider
+{
+    public async Task<string> GetDisplayValueAsync(IDisplayValueContext context, CancellationToken ct = default)
+    {
+        // get actual data value
+        var value = await context.InnerColumn.GetValueAsync(ct).ConfigureAwait(false);
+        // convert to lower-case
+        return value?.ToString().ToLowerInvariant();
+    }
+}
+
+private class LowerCaseModifier : IEntityColumnModifier
+{
+    private readonly EntityColumnModifierResult _modifier;
+    public LowerCaseModifier(IDisplayValueProvider provider)
+    {
+        _modifier = new EntityColumnModifierResult
+        {
+            DisplayValueProvider = provider
+        };
+    }
+    public EntityColumnModifierResult Get(IEntity entity)
+    {
+        return _modifier;
+    }
+}
+```
+
+This example shows how to apply modifiers dynamically. If an identity's `IsExternal` flag is set, the property `UID_FirmPartner` becomes mandatory.
+
+``` csharp
+
+public void Build(IApiBuilder builder)
+{
+    // Add a modifiers to the API method definition
+    builder.AddMethod(Method.Define("person")
+        .FromTable("Person")
+        .EnableCreate()
+        .WithResultColumns("UID_FirmPartner")
+        .Modify("UID_FirmPartner", mod => mod.DynamicModifiers.Add(new MandatoryCompanyModifier())));
+}
+
+// sample modifier object
+internal class MandatoryCompanyModifier : IEntityColumnModifier
+{
+    public EntityColumnModifierResult Get(IEntity entity)
+    {
+        // is it an external user? If so, then UID_FirmPartner becomes
+        // a mandatory field
+        if (entity.GetValue("IsExternal").Bool)
+            return new EntityColumnModifierResult
+            {
+                MinLen = 1
+            };
+        // if not -> no modification
+        return null;
+    }
+}
+```
+
+The following example of a dynamic modifier to restrict a date property to disallow dates that are in the past.
+
+```csharp
+private class DateNotInPastModifier : IEntityColumnModifier
+{
+    public EntityColumnModifierResult Get(IEntity entity)
+    {
+        // return a modifier with a constraint that defines that MinDate
+        // should not be in the past
+        return new EntityColumnModifierResult
+        {
+            ValueConstraint = new ValueConstraint
+            {
+                MinValue = DateTime.UtcNow
+            }
+        };
+    }
+}
+```
