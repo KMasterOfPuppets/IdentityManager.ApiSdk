@@ -16,6 +16,15 @@ The context object provides access to the ASP.NET request. You can also resolve 
 var request = RequestScopeContext.Current.GetServices().Resolve<IRequest>();
 ```
 
+## Accessing the Identity Manager connection
+
+You can access the current user's session object through the `IRequest.Session` property.
+
+``` csharp
+Method.Define("helloworld")
+    .HandleGet(request => "Hello, you are: " + request.Session.User().Display)
+```
+
 ## Calling a customizer method
 
 You can call customizer methods by loading an interactive entity and using the `GetMethod` method. Note that customizer methods can only be called for interactive entities.
@@ -113,64 +122,8 @@ Method.Define("logging")
     });
 ```
 
-## Changing an entity request at runtime
-
-You can change the parameters of an entity request at runtime. For example, you can add filters or change the sorting.
-
-``` csharp
-Method.Define("person")
-   .FromTable("Person")
-   .EnableRead()
-   .SubscribeProcessing((request, ct) => PrepareRequestAsync(request, ct))
-
-// ...
-
-private static async Task PrepareRequestAsync(IRequest request, CancellationToken ct)
-{
-    // Get the request's entity configuration
-    var env = request.GetEntityCollectionRequest();
-
-    // add a filter clause
-    env.FilterClauses.Add(new WhereClause("IsInactive = 0"));
-}
-```
-
-You can also define an entity method that is not bound to an object type. In this case, you have to set the object type at runtime.
-
-``` csharp
-Method.Define("generic")
-   .FromTable() // this is an unbound entity method
-   .EnableRead()
-   .SubscribeProcessing((request, ct) => PrepareRequestAsync(request, ct))
-
-// ...
-
-private static async Task PrepareRequestAsync(IRequest request, CancellationToken ct)
-{
-    // Get the request's entity configuration
-    var env = request.GetEntityCollectionRequest();
-
-    // set the Person table as the data source
-    env.Table = new MetaTableDescriptor(request.Session.MetaData().GetTable("Person"));
-}
-```
-
 
 ## Managing session state
-
-The API Server implements its own session state management. (ASP.NET Core session management is not used.)
-
-A *session group* consists of independent Identity Manager sessions for each API project. It is identified by the value of the `imx_sessiongroup` cookie. It is important to understand that a user may have authenticated sessions for 0, 1 or more API projects within a session group. For example, a session group can have the following state:
-
-|API project|Session|
-|---|---|
-|`portal`|Authenticated as user A|
-|`passwordreset`|Not authenticated|
-|`opsupport`|Authenticated as user B|
-
-To set the lifetime of the cookie, change the value of the `QBM\ApiServer\Defaults\SameSiteCookie` configuration parameter.
-
-The value of the cookie corresponds to a `SessionGuid` entry in the `QBMSessionStore` table. For security reasons, the value of the cookie is changed after each successful authentication.
 
 You can read and write data to the session store using the `IServerSession` interface. You can store objects of any serializable types.
 

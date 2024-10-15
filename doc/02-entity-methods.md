@@ -381,37 +381,29 @@ private class CustomEntryDateGroupDefProvider : IGroupDefinitionProvider
 
 ```
 
-## Defining extended data
+## Extended data
 
-ExtendedData providers define customized data flow that integrate with the API endpoints designed to read and write database entities.
-
-ExtendedData providers can be read-only, write-only or read-write.
-
-ExtendedData providers can read and write objects of any serializable type.
-
-The data types for read and write operations can be different.
-
-The ExtendedData objects are always read and written for a fixed list of entities.
+It is possible to extend entity methods with `ExtendedData` objects. These are customized data flows that integrate with the API endpoints for reading and writing data.
 
 Typical use cases include:
 
-- Reading/writing DialogParameter objects for entities. There is a pre-defined
-- ExtendedData provider for this use case; include it by calling the `WithParameterExtendedData` extension method.
-- Unwrapping objects that are serialized within a string property of an entity.
+- Reading and writing generic parameters (`DialogParameter` and `DialogParameterSet`) for entities. (Use the `WithParameterExtendedData` extension method for this use case.)
+- Providing additional data that does not suit itself to be represented as properties of the entity model. For example, the out-of-the-box API for IT shop requests provides additional information about the approval workflow of each request as ExtendedData.
+
+Extended data is added to an entity method by registering an extended data provider. The API includes interfaces for different types:
+- Read-only (`IReadOnlyExtendedDataProvider<T>`, data is only sent to the client)
+- Write-only (`IWriteOnlyExtendedDataProvider<T>`, data is only sent from the client to the server)
+- Read-write (`IReadWriteExtendedDataProvider<TRead, TWrite>`, data is sent in both directions).
+
+The classes referenced by the type parameters must be serializable and deserializable.
+
+It is important to note that the API requests and responses always contain *exactly one* extended data object, regardless of how many entities are handled in a request.
+
+The following sample shows a minimal extended data provider.
 
 ```csharp
 public void Build(IApiBuilder builder)
 {
-    // Example for DialogParameter integration
-    builder.AddMethod(Method.Define("request_with_dialogparameter")
-        .FromTable("PersonWantsOrg")
-        .EnableRead()
-
-        // include DialogParameters as read-only
-        .WithParameterExtendedData(true /* isReadOnly */)
-    );
-
-
     // Example with a custom ExtendedData provider
     builder.AddMethod(Method.Define("request_with_extendeddata")
         .FromTable("Person")
@@ -436,9 +428,10 @@ private class ExampleExtendedDataProvider : IReadOnlyExtendedDataProvider<Exampl
     }
 }
 
+// This is the DTO type that is sent to the client.
 public class ExampleExtendedData
 {
-
+    public string SomeProperty { get; set; }
 }
 ```
 
@@ -608,7 +601,7 @@ You can also define a writable calculated property. The client can set values fo
 });
 ```
 
-### Foreign-key candidates
+## Foreign-key candidates
 
 Whenever a user has to make a selection of objects from a set of objects, the API has to provide this set, which are called _candidate_ objects in the API model.
 
@@ -640,7 +633,7 @@ In this example, the candidate set for the State (`UID_DialogState`) property of
 })
 ```
 
-## Hierarchy configuration
+### Hierarchy configuration
 
 Candidates may be loaded from a hierarchical table. In this case, the usual semantics for hierarchical loading will apply and Angular client will try to load the root level first.
 
@@ -875,3 +868,45 @@ Method.Define("test")
 The created entity model method implements the generic interface `ICrudModel<T>` where `T` must implement the interface `ITypedEntityWrapper`.
 
 Please note: While generic equivalents are provided for some parts of the definition API, the generic definition API is not complete at this time. Because `ICrudModel<T>` inherits from `ICrudModel`, you can also use all the functionality of untyped API definition, so mixing typed and untyped definition code is possible.
+
+## Changing an entity request at runtime
+
+You can change the parameters of an entity request at runtime. For example, you can add filters or change the sorting.
+
+``` csharp
+Method.Define("person")
+   .FromTable("Person")
+   .EnableRead()
+   .SubscribeProcessing((request, ct) => PrepareRequestAsync(request, ct))
+
+// ...
+
+private static async Task PrepareRequestAsync(IRequest request, CancellationToken ct)
+{
+    // Get the request's entity configuration
+    var env = request.GetEntityCollectionRequest();
+
+    // add a filter clause
+    env.FilterClauses.Add(new WhereClause("IsInactive = 0"));
+}
+```
+
+You can also define an entity method that is not bound to an object type. In this case, you have to set the object type at runtime.
+
+``` csharp
+Method.Define("generic")
+   .FromTable() // this is an unbound entity method
+   .EnableRead()
+   .SubscribeProcessing((request, ct) => PrepareRequestAsync(request, ct))
+
+// ...
+
+private static async Task PrepareRequestAsync(IRequest request, CancellationToken ct)
+{
+    // Get the request's entity configuration
+    var env = request.GetEntityCollectionRequest();
+
+    // set the Person table as the data source
+    env.Table = new MetaTableDescriptor(request.Session.MetaData().GetTable("Person"));
+}
+```
