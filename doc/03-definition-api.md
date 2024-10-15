@@ -54,18 +54,6 @@ Method.Define("helloworld/text")
     }, typeof(string));
 ```
 
-## Access control
-
-The following example shows how to restrict access to an API project. The `CheckFeaturePlugin` checks for a specific program function at login time. If the user does not have this program function, the login attempt is rejected.
-
-```csharp
-public void Build(IApiBuilder builder)
-{
-    // This example uses the "ApiServer_Admin" function.
-	builder.AddPlugin(new CheckFeaturePlugin("ApiServer_Admin"));
-}
-```
-
 ## Module attribution
 
 Associating API methods with an Identity Manager module is important for correct API client generation, as API clients are defined by module.
@@ -97,9 +85,9 @@ public void Build(IApiBuilder builder)
 }
 ```
 
-## Multiple routes
+## Defining multiple routes on an API method
 
-This example shows how to build a method with two GET handlers on different routes. This is useful if the handlers share some logic (i.e. validation or parameterization).
+This example shows how to build a method with two GET handlers on different routes using the `WithRoute` method. This is useful if the handlers share some logic (i.e. validation or parameterization).
 
 ```csharp
 Method.Define("parentroute")
@@ -119,7 +107,7 @@ Method.Define("parentroute")
 ```
 
 
-## Binary data
+## Returning binary data from a method
 
 This method shows how to render binary data, such as images, through an API handler with automatic detection of the image type.
 
@@ -468,3 +456,15 @@ Directory access is possible through the /directory route:
  - delete a directory (`DELETE fileaccess/directory/path`)
 
 Note that the file system access is made using the credentials of the user account running the API Server, *not* the user who is logged into the API project on the client.
+
+## Access control
+
+The following example shows how to restrict access to an API project. The `CheckFeaturePlugin` checks for a specific program function at login time. If the user does not have this program function, the login attempt is rejected.
+
+```csharp
+public void Build(IApiBuilder builder)
+{
+    // This example uses the "ApiServer_Admin" function.
+	builder.AddPlugin(new CheckFeaturePlugin("ApiServer_Admin"));
+}
+```

@@ -28,7 +28,9 @@ Method.Define("person/specificcolumns")
 
 ```
 
-## Create, read, update, delete
+## CRUD (Create, read, update, delete) models
+
+You can define any combination of the four CRUD operations on an entity methods using the `EnableCreate`, `EnableRead`, `EnableUpdate` and `EnableDelete` methods.
 
 The base filter condition will also be applied when updating and deleting entities (but not on creating new ones). This example shows a method that can only read or delete entities that match the filter condition.
 
@@ -40,7 +42,7 @@ Method.Define("deletiontest")
     .EnableDelete()
 ```
 
-Clauses do not need to be passed as a string. They can also be re-used from a predefined SQL statement:
+Passing a filter clauses as a string is not the only option. Clauses can also be referenced from a predefined SQL statement:
 
 ```csharp
 Method.Define("example")
@@ -62,7 +64,7 @@ You can explicitly specify writable columns.
 .WithWritableColumns("FirstName", "LastName", "UID_PersonHead"));
 ```
 
-The following code defines a rule that determines when a column should be writable. In this case, the `PhoneNumber` is writable only if the `IsExternal` flag is set.
+The following code defines a rule that determines when a column should be writable. In this case, the `PhoneNumber` is writable only if the `IsExternal` flag is set. (Note that object permission constraints still apply and cannot be overridden.)
 
 ```csharp
 .WithWritableColumns("Phone", e => e.GetValue<bool>("IsExternal"))
@@ -70,10 +72,10 @@ The following code defines a rule that determines when a column should be writab
 
 ## Interactive vs. delayed logic
 
-This call will enable interactive writing to all columns. Note that object permission constraints still apply and cannot be overridden.
+By default, entity methods create *delayed-logic* entities. For many scenarios where users interact with an entity, and where the effective set of permissions is important, it is recommended to use *interactive* entities instead.
 
 ```csharp
-.With(m => m.Crud.EntityType = EntityType.Interactive)
+.As(EntityType.Interactive)
 ```
 
 ## The data model API
@@ -638,7 +640,7 @@ In this example, the candidate set for the State (`UID_DialogState`) property of
 })
 ```
 
-#### Hierarchy configuration
+## Hierarchy configuration
 
 Candidates may be loaded from a hierarchical table. In this case, the usual semantics for hierarchical loading will apply and Angular client will try to load the root level first.
 
@@ -664,7 +666,7 @@ There is also an option to use a partial sub-tree hierarchy with a single known 
     a => a.Crud.Read.Hierarchy = new BaseTreeHierarchy("Locality", "UID_Locality", "UID_ParentLocality", "UID_OF_ROOT_LOCALITY", sqlformatter), false)
 ```
 
-### Entity event model
+## Entity event model
 
 Whenever an entity is loaded or created during the processing lifecycle of an entity method, you can subscribe to entity changes in order to react to entity events.
 
@@ -707,23 +709,6 @@ private void ProcessingEntities(IBulkEntityProcessingContext cx)
     var entities = cx.Entities;
 }
 ```
-
-## Type-safe method definition
-
-For some modules, a typed wrapper library `<module>.TypedWrappers.dll` is provided that contains types for the tables for a module. Reference the correct library and use the type directly to define an entity-based API method.
-
-```csharp
-// needs QBM.TypedWrappers.dll
-Method.Define("test")
-    .From<QBM.TypedWrappers.QBMVSystemOverview>()
-    .EnableRead()
-    // Use the column names directly as LINQ expressions.
-    .WithResultColumns(x => x.Element, x => x.QualityOfValue, x => x.RecommendedValue)
-```
-
-The created entity model method implements the generic interface `ICrudModel<T>` where `T` must implement the interface `ITypedEntityWrapper`.
-
-Please note: While generic equivalents are provided for some parts of the definition API, the generic definition API is not complete at this time. Because `ICrudModel<T>` inherits from `ICrudModel`, you can also use all the functionality of untyped API definition, so mixing typed and untyped definition code is possible.
 
 ## Modifying an entity method
 
@@ -873,3 +858,20 @@ private class DateNotInPastModifier : IEntityColumnModifier
     }
 }
 ```
+
+## Type-safe method definitions
+
+For some modules, a typed wrapper library `<module>.TypedWrappers.dll` is provided that contains types for the tables for a module. Reference the correct library and use the type directly to define an entity-based API method.
+
+```csharp
+// needs QBM.TypedWrappers.dll
+Method.Define("test")
+    .From<QBM.TypedWrappers.QBMVSystemOverview>()
+    .EnableRead()
+    // Use the column names directly as LINQ expressions.
+    .WithResultColumns(x => x.Element, x => x.QualityOfValue, x => x.RecommendedValue)
+```
+
+The created entity model method implements the generic interface `ICrudModel<T>` where `T` must implement the interface `ITypedEntityWrapper`.
+
+Please note: While generic equivalents are provided for some parts of the definition API, the generic definition API is not complete at this time. Because `ICrudModel<T>` inherits from `ICrudModel`, you can also use all the functionality of untyped API definition, so mixing typed and untyped definition code is possible.
