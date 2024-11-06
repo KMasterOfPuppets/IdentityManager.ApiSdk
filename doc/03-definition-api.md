@@ -254,7 +254,9 @@ public class MyPlugIn : IBuilderPlugIn
 {
     public void Start(IBuilderPlugInContext context)
     {
-        var builder = context.Builder;
+        // Get the ASP.NET Core IServiceCollection
+        
+        var services = context.Services;
 
         // TODO: Integrate the required services and handlers here.
 
