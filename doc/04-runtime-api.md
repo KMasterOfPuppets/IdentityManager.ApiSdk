@@ -16,6 +16,59 @@ The context object provides access to the ASP.NET request. You can also resolve 
 var request = RequestScopeContext.Current.GetServices().Resolve<IRequest>();
 ```
 
+The `IRequest` interface provides a property `Context` that gives access to the underlying ASP.NET `HttpContext`. [See the official ASP.NET Core documentation](https://learn.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.http.httpcontext?view=aspnetcore-8.0).
+
+## Accessing the request body
+
+If the method was defined with an input type, the request body is provided as a object of that type.
+
+``` csharp
+Method.Define("helloworld")
+    .Handle<PostedMessage>("POST",
+    (message, request) =>
+    {
+        // message is of type PostedMessage
+    });
+```
+
+You can also deserialize the JSON object to any type at runtime.
+
+``` csharp
+Method.Define("helloworld")
+    .Handle("POST", async (request, ct) =>
+    {
+        var message = await request.GetContentAsync<PostedMessage>(ct).ConfigureAwait(false);
+    });
+```
+
+## Accessing URL parameters
+
+To access the value of a URL parameter, you can use the `Parameters` property of the request. The following example uses a `string`, although
+other types and JSON-deserializable types are also possible.
+
+> [!NOTE]
+> Treat URL input parameters as unsafe. Whenever you process the value of a URL parameter in a sensitive context, such as building a SQL WHERE clause, use the `SqlFormatter` object to ensure that the value is properly escaped.
+
+``` csharp
+Method.Define("tags/{UID_AccProduct}")
+    .WithParameter("UID_AccProduct", typeof(string), "Unique service item identifier", isInQuery: false)
+    .WithDescription("Obtains the tags associated with a service item.")
+    .FromTable("DialogTag")
+    .EnableRead()
+    .WithWhereClause(async (request, ct) =>
+    {
+        // Get the value of the UID_AccProduct URL parameter
+        var uidaccproduct = request.Parameters.Get<string>("UID_AccProduct");
+
+        // Use the value of the parameter in a SQL WHERE clause, using the SqlFormatter
+        // for safe escaping of the value.
+        return string.Format(
+            "UID_DialogTag in (select uid_dialogtag from dialogtaggeditem where {0})",
+            request.Session.SqlFormatter().UidComparison("ObjectKey",
+                new DbObjectKey("AccProduct", uidaccproduct).ToXmlString()));
+    })
+```
+
 ## Accessing the Identity Manager connection
 
 You can access the current user's session object through the `IRequest.Session` property.

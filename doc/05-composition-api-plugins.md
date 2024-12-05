@@ -12,6 +12,26 @@ The steps to add a Composition API plugin are similar to setting up API Server p
 - Do not add a reference to `QBM.CompositionApi.Server.dll`.
 - Plugin file names have to match the pattern `*.CompositionApi.dll`.
 
+## Registering additional Composition API services
+
+To register additional services at initialization time, implement the `IBootstrapper` interface and register your service instances:
+
+``` csharp
+public class Bootstrapper : IBootstrapper
+{
+    public void RegisterServices(IServices services)
+    {
+        // Resolve the plugin service
+        var pluginService = services.Resolve<IPluginService>();
+
+        // This is an example showing the pattern
+        pluginService.Register<IServiceInterface>(new ServiceImplementation());
+    }
+}
+```
+
+The `RegisterService` method will be called when the Composition API initializes its services.
+
 ## IT shop component parameters
 
 The Composition API offers an interface to extend IT shop requests with *component parameters*. In the UI, these parameters act like request properties. However, they are completely independent and defined in code. The values of these parameters can be stored anywhere in the database.
@@ -163,6 +183,59 @@ var table = await _session.MetaData().GetTableAsync("Person", ct).ConfigureAwait
 parameterAdapter.QueryColumns = new[] {table.Columns["UID_Person"]};
 // Filter only internal active identities.
 parameterAdapter.QueryWhereClause = "IsExternal=0 and IsInActive=0";
+```
+
+## Optional service items in the IT Shop
+
+In addition to the service item dependencies defined in the configuration, you can dynamically define optional service items in code. To do that, add a class implementing `IServiceItemDependencyProvider` and register it with the plugin service.
+
+Each `IServiceItemDependencyProvider` is called with the following information:
+- the current session,
+- the list of recipients (as UIDs),
+- the UID of the requested service item,
+- and the check mode.
+
+The check mode indicates the context of the call. The code is called while the user adds the service item to the shopping cart (but before the cart item is actually created). It is also called during the shopping cart validation to ensure that the optional items are still valid.
+
+In the return value, you can return any number of optional service items, and any combination of recipients.
+
+``` csharp
+public class Bootstrapper : IBootstrapper
+{
+    public void RegisterServices(IServices services)
+    {
+        // Resolve the plugin service
+        var pluginService = services.Resolve<IPluginService>();
+
+        // This is an example showing the pattern
+        pluginService.Register<IServiceItemDependencyProvider>(new CustomDependencyProvider());
+    }
+}
+
+public class CustomDependencyProvider : IServiceItemDependencyProvider
+{
+    public async Task<IReadOnlyList<ServiceItemDependency>> GetOptionalServiceItemsAsync(ISession session, string[] uidPersonRecipients,
+        string uidAccProduct, DependencyMode mode, CancellationToken ct = default)
+    {
+        // If the user requested a different product, exit
+        if (uidAccProduct != "UID-OF-MY-ACCPRODUCT")
+        {
+            return Array.Empty<ServiceItemDependency>();
+        }
+
+        // insert your code to calculate the optional service item(s) here.
+        
+        var uidOptionalProduct = "UID-OF-MY-OPTIONAL-ACCPRODUCT";
+
+        return new[] {
+            new ServiceItemDependency {
+                UidAccProduct = uidOptionalProduct,
+                // assuming the dependency is valid for every one of the selected recipients:
+                UidPersonsValidFor = uidPersonRecipients
+            }
+        };
+    }
+}
 ```
 
 ## Shopping cart checks
