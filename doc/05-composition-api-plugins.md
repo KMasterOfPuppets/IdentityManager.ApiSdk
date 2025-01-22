@@ -362,7 +362,7 @@ public class ExampleRecommendationProvider : IRecommendationProvider
             Id = nameof(ExampleRecommendationProvider),
             Weight = weight,
             Value = riskIndex,
-            Title = "",
+            Title = "Recommendation example",
             DetailText = ""
         };
 
