@@ -321,3 +321,52 @@ public class SampleCheck : ICartItemCheck
 
 ```
 
+## Workflow recommendations
+
+You can define a plugin to add custom recommendation logic.
+
+In a Composition API plugin, add a public class implementing one of these interfaces:
+
+- For IT shop workflows, use the interface `QER.CompositionApi.ITShop.Recommendation.IRecommendationProvider`.
+- For attestation workflows, use the interface `ATT.CompositionApi.Recommendation.IRecommendationProvider`.
+
+The recommendation provider is called during the calculation of the recommendation for a specific request/attestation procedure. The recommendation provider is responsible for calculating and returning a `RecommendationItem` describing the details of the calculation.
+
+The `Weight` property is used to calculate an aggregated recommendation.
+
+- If the sum of all `Weight` values is 0, the recommendation is `Approve`.
+- If the sum of all `Weight` values is >= 1.0, the recommendation is `Deny`.
+- Otherwise, there is no recommendation.
+
+The following code shows an example for a recommendation provider implementation.
+
+``` csharp
+public class ExampleRecommendationProvider : IRecommendationProvider
+{
+    // Calculate the recommendation for this request.
+    public async Task<TryResult<RecommendationItem>> BuildAsync(IEntity request, ISession session,
+        CancellationToken ct = default)
+    {
+        // Return TryResult<RecommendationItem>.Failed if this type of recommendation
+        // does not apply to this request and should be skipped.
+        if (request.Display === "test-failed")
+        {
+            return TryResult<RecommendationItem>.Failed;
+        }
+
+        // Insert logic here to determine whether to increase the weight.
+        var weight = 0.5;
+
+        var item = new RecommendationItem
+        {
+            Id = nameof(ExampleRecommendationProvider),
+            Weight = weight,
+            Value = riskIndex,
+            Title = "",
+            DetailText = ""
+        };
+
+        return TryResult<RecommendationItem>.FromResult(item);
+    }
+}
+```
