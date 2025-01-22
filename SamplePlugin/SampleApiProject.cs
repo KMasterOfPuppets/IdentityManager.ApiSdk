@@ -35,6 +35,12 @@ using QBM.CompositionApi.Definition;
 using QBM.CompositionApi.Session;
 using VI.Base;
 
+// This attribute will automatically assign all methods defined in this DLL to the CCC (customer)
+// module of Identity Manager.
+// Associating API methods with an Identity Manager module is important for correct API client generation,
+// as API clients are defined by module.
+[assembly:QBM.CompositionApi.PlugIns.Module("CCC")]
+
 namespace Api
 {
     public class PluginMethodSetProvider : IPlugInMethodSetProvider
@@ -67,7 +73,7 @@ namespace Api
 
         var authConfig = new SessionAuthDbConfig
         {
-            AuthenticationType = Config.AuthType.AllManualModules,
+            AuthenticationType = AuthType.AllManualModules,
             // Insert the name of the product to use for authentication
             Product = "Portal",
             SsoAuthentifiers =
