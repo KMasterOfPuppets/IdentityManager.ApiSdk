@@ -381,3 +381,102 @@ public class ExampleRecommendationProvider : IRecommendationProvider
     }
 }
 ```
+
+
+## Password providers
+
+You can extend the password reset interfaces by adding a provider plugin to declare additional password properties.
+
+This provider is called in two different contexts:
+- in Password Reset Portal to set the authenticated user's passwords.
+- in Operations Support Portal to set a specific user's passwords.
+
+The following sample class is a template that you can modify and adapt to your use case.
+
+``` csharp
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
+using QBM.CompositionApi.Password;
+using VI.DB;
+using VI.DB.Entities;
+
+public class SamplePasswordItemProvider : IPasswordItemProvider
+{
+    // Entry point to obtain passwords for the currently authenticated user.
+    public Task<IEnumerable<IPasswordItem>> GetPasswordItemsAsync(ISession session,
+        CancellationToken ct = default)
+    {
+        return GetPasswordItemsAsync(session, session.User().Uid, false, ct);
+    }
+
+    // Entry point to obtain passwords for the specified user by helpdesk.
+    public Task<IEnumerable<IPasswordItem>> GetPasswordItemsAsync(ISession session, string uidPerson,
+        CancellationToken ct = default)
+    {
+        return GetPasswordItemsAsync(session, uidPerson, true, ct);
+    }
+
+    // Returns the password items for the specified identities.
+    private async Task<IEnumerable<IPasswordItem>> GetPasswordItemsAsync(ISession session, string uidPerson,
+        bool byHelpdesk, CancellationToken ct = default)
+    {
+        // If called by helpdesk, restrict to identities that allow helpdesk password reset
+        var filter = byHelpdesk
+            ? "CCC_Uid_person in ( select uid_Person from person where IsPwdResetByHelpdeskAllowed=1)"
+            : null;
+        var q = Query.From("CCC_Table")
+            .Where(session.SqlFormatter().UidComparison("CCC_UID_Person", uidPerson))
+            .Where(filter)
+            .Select("XObjectKey", "UID_UNSRoot", "UID_Person", "PWDLastSet");
+
+        var accounts = await session.Source()
+            .GetCollectionAsync(q, EntityCollectionLoadType.ForeignDisplaysForAllColumns
+                                   | EntityCollectionLoadType.LoadForeignDisplaysEvenWhenExpensive, ct)
+            .ConfigureAwait(false);
+
+        var list = new List<IPasswordItem>();
+        foreach (var accn in accounts)
+        {
+            list.AddRange(await ProcessAccountAsync(session, accn, ct).ConfigureAwait(false));
+        }
+
+        return list;
+    }
+
+    private static async Task<IEnumerable<IPasswordItem>> ProcessAccountAsync(ISession session, IEntity account,
+        CancellationToken ct)
+    {
+        var list = new List<IPasswordItem>();
+        var realKey = new DbObjectKey(account.GetValue("XObjectKey").String);
+
+        foreach (var columnName in new[] { "Password" })
+        {
+            // check if this column is writable for this object
+            var canEdit = account.Columns[columnName].CanEdit;
+            if (!canEdit)
+            {
+                // skipping because there are no write permissions on the column
+                continue;
+            }
+
+            var policy = await PasswordItemCollector.GetPolicyAsync(session, account, columnName, ct)
+                .ConfigureAwait(false);
+
+            list.Add(new PasswordItem
+            {
+                ColumnName = columnName,
+                Key = realKey.ToXmlString(),
+                Display = account.Display,
+                Policy = policy,
+                // TODO: if the date of the last password change can be obtained, include it here.
+                PasswordLastSet = default,
+                Type = PasswordItemType.Personal
+            });
+        }
+
+        return list;
+    }
+}
+```
+
